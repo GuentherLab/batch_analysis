@@ -74,8 +74,8 @@ options=struct(...
     'rois',{{}},...
     'hemispheres',{{}},...
     'measures',{{}},...
-    'model_effects',{{'AllSubjects'}},...
-    'model_contrast',[1]);
+    'model_effects',{{}},...
+    'model_contrast',[]);
 out={};
 for n=1:2:nargin-1
     assert(isfield(options,lower(varargin{n})),'unrecognized option %s',varargin{n});
@@ -178,12 +178,12 @@ if options.listvars % lists variables
     return
 end
 
+% ROIs
 if isempty(options.rois),
     options.rois=listdlg('name',['Select ROIs'],'PromptString','Select ROI(s) to include in the analysis','ListString',uname,'SelectionMode','multiple','ListSize',[300 300]);
     if isempty(options.rois), return; end
     options.rois=arrayfun(@(x){x},uname(options.rois),'uni',0); % one-ROI per parcel only
 end
-
 if isequal(options.rois,'lumped'), ROIs = {{'aINS'}, {'aMFg'}, {'aSTg'}, {'CMA'},{'dPrCG'},{'H'},{'IFo'}, {'IForb'}, {'IFt'},{'mPoCG'},{'mPrCG'},{'pMFg'}, {'preSMA'},{'pSTg'},{'SMA'},{'SMg'},{'vPoCG'},{'vPrCG'}}; %lumped rois only
 elseif isequal(options.rois,'groups'), ROIs={{'aIFt', 'pIFt','aFO'},{'dIFo','vIFo','pFO'},{'IFr','FOC'},{'H'},{'vPMC','midPMC'},{'vMC','midMC','aCO'},{'vSC','pCO', 'midSC'},{'preSMA','SMA','dCMA'},{'aSMg','PO'},{'pSMg'},{'PT','pSTg','pdSTs'},{'PP','aSTg','adSTs'},{'aINS'},{'pIFs'}};
 elseif isequal(options.rois,'speech'), ROIs = {{'aCO'}, {'aFO'}, {'aINS'}, {'aSMg'}, {'dCMA'}, {'dIFo'}, {'H'}, {'IFr'}, {'midMC'}, {'midPMC'}, {'midSC'}, {'pCO'}, {'pdSTs'}, {'pFO'}, {'pIFs'}, {'PO'}, {'preSMA'}, {'pSTg'}, {'PT'}, {'SMA'}, {'vIFo'}, {'vMC'}, {'vPMC'}, {'vSC'}}; %speech network
@@ -196,7 +196,6 @@ end
 %ROIs = {{'pIFs','pTF','aIFs','PP','pPH','pCO','pINS','aCO','vSC','aSTg','AG','FP','pSMg','aMFg','dIFo','aINS','H','midSC','vIFo','aSMg','midMC','vMC','PO','pMFg','LG','TOF','pvSTs','pSTg','SPL','OC','PT','MTO','midPMC','pdSTs','vPMC','PCN','ITO','pITg','pFO','aTF','adSTs','aIFt','pMTg','SFg','pCG','FOC','dMC','aCG','pIFt'}};
 %right
 %ROIs = {{'AG','vMC','pSMg','MTO','aSTg','H','PP','vSC','pIFs','pCO','aCO','pINS','PO','OC','dIFo','SPL','aMFg','aINS','pdSTs','LG','FP','SFg','dSC','PT','pSTg','aSMg','pvSTs','vPMC','TOF','aIFs','aCG','midSC','vIFo','adSTs','midMC','dMC','pFO','PCN','pMFg','dCMA','pCG','SMA','midPMC','vCMA','pMTg','preSMA','pdPMC'}};
-
 if ischar(ROIs), ROIs={ROIs}; end
 I_ROIs={};
 for n1=1:numel(ROIs)
@@ -209,18 +208,47 @@ for n1=1:numel(ROIs)
 end
 Nrois = numel(I_ROIs);
 
-if isempty(options.measures), options.measures=umeas; end
+% measures
+if isempty(options.measures),
+    options.measures=listdlg('name',['Select measures'],'PromptString','Select measure(s) to include in the analysis','ListString',umeas,'SelectionMode','multiple','ListSize',[300 300]);
+    if isempty(options.measures), return; end
+    options.measures=umeas(options.measures);
+end
 if ischar(options.measures), options.measures={options.measures}; end
 [OK_Meas, I_Meas]=ismember(options.measures,umeas);
 assert(all(OK_Meas),'unrecognized measures %s (valid entries are %s)',sprintf('%s ',options.measures{~OK_Meas}), sprintf('%s ',umeas{:}));
-if isempty(options.hemispheres), options.hemispheres=uhemi; end
+
+% hemispheres
+if isempty(options.hemispheres),
+    options.hemispheres=listdlg('name',['Select hemispheres'],'PromptString','Select hemisphere(s) to include in the analysis','ListString',uhemi,'SelectionMode','multiple','ListSize',[300 300]);
+    if isempty(options.hemispheres), return; end
+    options.hemispheres=uhemi(options.hemispheres);
+end
 if ischar(options.hemispheres), options.hemispheres={options.hemispheres}; end
 [OK_Hem, I_Hem]=ismember(options.hemispheres,uhemi);
 assert(all(OK_Hem),'unrecognized measures %s (valid entries are %s)',sprintf('%s ',options.hemispheres{~OK_Hem}), sprintf('%s ',uhemi{:}));
+
+% model effects
+if isempty(options.model_effects),
+    tCOV_name=[{'AllSubjects'},COV_name(:)'];
+    options.model_effects=listdlg('name',['Select subject-effects in GLM model'],'PromptString','Select subject-effect(s) to include in the analysis','ListString',tCOV_name,'SelectionMode','multiple','ListSize',[300 300]);
+    if isempty(options.model_effects), return; end
+    options.model_effects=tCOV_name(options.model_effects);
+end
 if ischar(options.model_effects), options.model_effects={options.model_effects}; end
 [OK_effects, I_effects]=ismember(options.model_effects,COV_name);
 OK_effects(ismember(options.model_effects,{'AllSubjects'}))=true;
 assert(all(OK_effects),'unrecognized covariates %s (valid entries are %s)',sprintf('%s ',options.model_effects{~OK_effects}), sprintf('%s ',COV_name{:}));
+
+% model contrast
+if isempty(options.model_contrast),
+    if numel(I_effects)==1, options.model_contrast=1;
+    else
+        answ=inputdlg(sprintf('Between-subjects contrast (vector with %d values)',numel(I_effects)),'',1,{mat2str(zeros(1,numel(I_effects)))});
+        if isempty(answ), return; end
+        options.model_contrast=str2num(answ{1});
+    end
+end
 
 %% define model design
 AllSubjects = ones(size(Data,1));
@@ -230,7 +258,9 @@ Design(:,I_effects>0)=Covariates(:,I_effects(I_effects>0));
 Contr = options.model_contrast;
 assert(size(Contr,2)==size(Design,2),'mismatch number of columns in contrast vector/matrix (%d) and number of columns in design matrix (%d)',size(Contr,2),size(Design,2));
 fprintf('Model Design : %s\nModel Contrast: %s\n',mat2str(Design),mat2str(Contr));
-
+fprintf('ROIs: %d ROI groups\n',Nrois);
+fprintf('Measures: %s\n',sprintf('%s ',umeas{I_Meas}));
+fprintf('Hemispheres: %s\n',sprintf('%s ',uhemi{I_Hem}));
 
 %% stats
 P=[];F=[]; Stats={}; Dof={}; descr={};
