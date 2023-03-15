@@ -59,8 +59,9 @@ function out = batch_analysis(varargin)
 %
 %
 % e.g.
-% out = batch_analysis('file', 'year1cortical_jason_results_12052016.xlsx', 'worksheet','DATA');
-%
+% batch_analysis('file', 'example.xlsx', 'worksheet','DATA');
+% batch_analysis('file', 'example.xlsx', 'worksheet','DATA', 'rois', {'aCO'}, 'model_effects',{'AllSubjects','Chronological_Age_Months'},'model_contrast',[0 1],'hemispheres','lh','measures',{'area','volume'});
+
 
 % alfnie@gmail.com
 % 2023
@@ -107,6 +108,8 @@ fields=cat(1,match{ROI_idx});
 [umeas,nill,ROI_meas]=unique(fields(:,3));
 ss_data(cellfun(@(x)isequal(x,'NaN')|isequal(x,'nan'),ss_data))={NaN};
 data=cell2mat(ss_data(2:end,ROI_idx));
+validsamples=~all(isnan(data),2);
+data=data(validsamples,:);
 sData=[numel(umeas),numel(uhemi),numel(uname)];
 idx=sub2ind(sData,ROI_meas,ROI_hemi,ROI_name);
 if numel(unique(idx))~=numel(idx),error('repeated ROI names'); end
@@ -117,7 +120,9 @@ fprintf('Read %d samples\nRead %d measures (%s)\nRead %d hemispheres (%s)\nRead 
 
 COV_idx=find(cellfun('length',match)~=3);
 COV_idx=COV_idx(all(cellfun(@isnumeric,ss_data(2:end,COV_idx)),1));
+COV_idx=COV_idx(~all(cellfun(@isnan,ss_data(2:end,COV_idx)),1));
 data=cell2mat(ss_data(2:end,COV_idx));
+data=data(validsamples,:);
 Covariates=data;
 COV_name=ss_fields(COV_idx);
 assert(size(Covariates,1)==size(Data,1),'unequal number of samples in data (%d) and covariates (%d)',size(Data,1),size(Covariates,1));
@@ -265,29 +270,13 @@ for n=1:Nrois %for each ROI (+1 is for all rois together)
 end
 n=Nrois+1; descr{n}=sprintf('all-ROIs average : %c(%s) = %.2f, p = %.3f',Stats{n},mat2str(Dof{n}),F(n),P(n));
 
-% dataSaveSig = {};
-% roiSaveSig = [];
-% pSaveSig = [];
-% dataSaveFull = {};
-% roiSaveFull = [];
-% pSaveFull = [];
-%idx=1:numel(P);
-
 if ~nargout
     out=[];
     [nill,idx]=sort(P);
     fprintf('All stats:\n');
     for n=1:numel(P)
-        if idx(n)>Nrois, fprintf('  all-ROIs average, %s(%s)=%f, p-unc=%f, p-FDR=%f\n',Stats{idx(n)},mat2str(Dof{idx(n)}),F(idx(n)),P(idx(n)),P_fdr(idx(n)));
+        if idx(n)>Nrois, fprintf('  all-ROIs average, %s(%s)=%f, p-unc=%f\n',Stats{idx(n)},mat2str(Dof{idx(n)}),F(idx(n)),P(idx(n)));
         else fprintf('  ROI #%d (%s), %s(%s)=%f, p-unc=%f, p-FDR=%f\n',idx(n),sprintf('%s ',uname{I_ROIs{idx(n)}}),Stats{idx(n)},mat2str(Dof{idx(n)}),F(idx(n)),P(idx(n)),P_fdr(idx(n)));
-            %         roiSaveFull = [roiSaveFull {uname{I_ROIs{idx(n)}}}];
-            %         dataSaveFull = [dataSaveFull dataSave(:, idx(n))];
-            %         pSaveFull = [pSaveFull P(idx(n))];
-            %         if P_fdr(idx(n)) <= 0.05
-            %             roiSaveSig = [roiSaveSig {uname{I_ROIs{idx(n)}}}];
-            %             dataSaveSig = [dataSaveSig dataSave(:, idx(n))];
-            %             pSaveSig = [pSaveSig P(idx(n))];
-            %         end
         end
     end
     idx=find(P_fdr<=.05);                                    % find significant results
@@ -295,7 +284,7 @@ if ~nargout
     else
         fprintf('%d significant results\n',numel(idx));
         for n=1:numel(idx)
-            if idx(n)>Nrois, fprintf('  all-ROIs average, %s(%s)=%f, p-unc=%f, p-FDR=%f\n',Stats{idx(n)},mat2str(Dof{idx(n)}),F(idx(n)),P(idx(n)),P_fdr(idx(n)));
+            if idx(n)>Nrois, fprintf('  all-ROIs average, %s(%s)=%f, p-unc=%f\n',Stats{idx(n)},mat2str(Dof{idx(n)}),F(idx(n)),P(idx(n)));
             else fprintf('  ROI #%d (%s), %s(%s)=%f, p-unc=%f, p-FDR=%f\n',idx(n),sprintf('%s ',uname{I_ROIs{idx(n)}}),Stats{idx(n)},mat2str(Dof{idx(n)}),F(idx(n)),P(idx(n)),P_fdr(idx(n)));
             end
         end
